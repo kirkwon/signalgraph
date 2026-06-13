@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SignalGraph — Reactive Web Component Demo</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    background: #0f0f1a;
+    color: #e0e0e0;
+    padding: 40px 24px;
+    line-height: 1.6;
+  }
+
+  .container { max-width: 900px; margin: 0 auto; }
+
+  h1 { font-size: 28px; font-weight: 600; margin-bottom: 4px; }
+  .subtitle { color: #888; font-size: 14px; margin-bottom: 40px; }
+  h2 { font-size: 18px; font-weight: 500; margin: 32px 0 12px; }
+  h3 { font-size: 14px; font-weight: 500; margin: 24px 0 8px; color: #aaa; }
+
+  .demo-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 16px 0;
+  }
+
+  .card {
+    background: #1a1a2e;
+    border: 1px solid #2a2a3e;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .card-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid #2a2a3e;
+    font-size: 13px;
+    font-weight: 500;
+    color: #aaa;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .card-body {
+    padding: 4px;
+    background: #12121e;
+  }
+
+  signal-graph {
+    width: 100%;
+    height: 200px;
+  }
+  signal-graph.dark-alt {
+    --sg-bg-color: #1e1e30;
+  }
+
+  .controls {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 12px 0 24px;
+  }
+  .controls button {
+    padding: 8px 16px;
+    border: 1px solid #3a3a4e;
+    background: #1a1a2e;
+    color: #ccc;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.15s;
+  }
+  .controls button:hover { background: #2a2a3e; border-color: #5a5a7e; }
+  .controls button.active { border-color: #4f8cff; color: #4f8cff; background: #1a2a4e; }
+
+  .controls select {
+    padding: 8px 12px;
+    border: 1px solid #3a3a4e;
+    background: #1a1a2e;
+    color: #ccc;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .tag {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+    background: #2a2a3e;
+  }
+  .tag.canvas { background: #1a3a2e; color: #6fcf97; }
+  .tag.svg { background: #2a2a4e; color: #7f8cff; }
+  .tag.dom { background: #3a2a2e; color: #cf6f97; }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin: 16px 0;
+  }
+  .stat {
+    background: #1a1a2e;
+    border: 1px solid #2a2a3e;
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+  }
+  .stat-value { font-size: 24px; font-weight: 600; color: #4f8cff; }
+  .stat-label { font-size: 12px; color: #888; margin-top: 4px; }
+
+  pre {
+    background: #12121e;
+    border: 1px solid #2a2a3e;
+    border-radius: 8px;
+    padding: 16px;
+    font-size: 13px;
+    overflow-x: auto;
+    margin: 12px 0;
+  }
+  code { font-family: 'JetBrains Mono', 'Fira Code', monospace; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>⚡ SignalGraph</h1>
+  <div class="subtitle">Reactive Web Component · 0 dependencies · Swappable renderers</div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-value">0</div>
+      <div class="stat-label">Dependencies</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">3</div>
+      <div class="stat-label">Renderers</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">~500</div>
+      <div class="stat-label">Lines of Code</div>
+    </div>
+  </div>
+
+  <!-- Renderer Switch -->
+  <h2>Renderer Comparison</h2>
+  <p style="color:#888;font-size:13px;margin-bottom:12px;">
+    Same data, same component API — three different rendering backends.
+    The component never touches the rendering API directly.
+  </p>
+
+  <div class="controls" id="rendererControls">
+    <button data-renderer="canvas" class="active">🖌 Canvas</button>
+    <button data-renderer="svg">📐 SVG</button>
+    <button data-renderer="dom">🧱 DOM</button>
+  </div>
+
+  <div class="demo-grid">
+    <div class="card">
+      <div class="card-header">
+        <span>Sine Wave</span>
+        <span class="tag canvas" id="tag1">canvas</span>
+      </div>
+      <div class="card-body">
+        <signal-graph id="graph1" renderer="canvas"></signal-graph>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span>Random Walk</span>
+        <span class="tag svg" id="tag2">svg</span>
+      </div>
+      <div class="card-body">
+        <signal-graph id="graph2" renderer="svg"></signal-graph>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Data Demo -->
+  <h2>Live Data Streaming</h2>
+  <p style="color:#888;font-size:13px;margin-bottom:12px;">
+    Data updates every 100ms. The signal system triggers re-render
+    only when the data actually changes — no VDOM diffing needed.
+  </p>
+
+  <div class="controls">
+    <button id="toggleStream">⏸ Pause</button>
+    <button id="resetStream">↺ Reset</button>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span>Streaming Data</span>
+      <span class="tag canvas">canvas</span>
+    </div>
+    <div class="card-body">
+      <signal-graph id="graph3" renderer="canvas" line-color="#6fcf97"></signal-graph>
+    </div>
+  </div>
+
+  <!-- Usage -->
+  <h2>Usage</h2>
+  <pre><code>&lt;!-- Load the component --&gt;
+&lt;script type="module" src="src/components/signal-graph.js"&gt;&lt;/script&gt;
+
+&lt;!-- Use with data attribute (JSON) --&gt;
+&lt;signal-graph data="[1,2,3,4,5]" renderer="canvas"&gt;&lt;/signal-graph&gt;
+
+&lt;!-- Or set data programmatically --&gt;
+&lt;script&gt;
+  const graph = document.querySelector('signal-graph');
+  graph.data = [3.1, 4.2, 5.9, 2.6, 1.8];
+  graph.renderer = 'svg';
+&lt;/script&gt;
+
+&lt;!-- Style via CSS custom properties --&gt;
+&lt;style&gt;
+  signal-graph {
+    --sg-line-color: #6fcf97;
+    --sg-bg-color: #1a1a2e;
+  }
+&lt;/style&gt;</code></pre>
+
+  <!-- Architecture -->
+  <h2>Architecture</h2>
+  <pre><code>signal-graph (Custom Element)
+├── Shadow DOM (closed mode — true encapsulation)
+├── Signal system (reactive state management)
+│   ├── signal() — tracked getter/setter
+│   ├── computed() — lazy derived values
+│   └── effect() — auto-reacting side effects
+├── Renderer interface (swap without component changes)
+│   ├── CanvasRenderer — high-frequency, sub-pixel
+│   ├── SVGRenderer — vectors, accessibility
+│   └── DOMRenderer — CSS transitions, text selection
+└── CSS Custom Properties — theming API</code></pre>
+</div>
+
+<script type="module">
+import { SignalGraph } from './src/components/signal-graph.js';
+
+// ── Data generators ──────────────────────────────────────────
+function sineWave(points = 60) {
+  return Array.from({ length: points }, (_, i) =>
+    50 + 30 * Math.sin(i * 0.2) + 10 * Math.sin(i * 0.7)
+  );
+}
+
+function randomWalk(steps = 60, start = 50, volatility = 5) {
+  let val = start;
+  const data = [val];
+  for (let i = 1; i < steps; i++) {
+    val += (Math.random() - 0.5) * volatility;
+    data.push(Math.max(0, Math.min(100, val)));
+  }
+  return data;
+}
+
+// ── Initialize graphs ─────────────────────────────────────────
+const g1 = document.getElementById('graph1');
+const g2 = document.getElementById('graph2');
+const g3 = document.getElementById('graph3');
+
+g1.data = sineWave(60);
+g2.data = randomWalk(60);
+
+// Live streaming data
+let streaming = true;
+let streamData = randomWalk(100);
+
+g3.data = streamData;
+
+setInterval(() => {
+  if (!streaming) return;
+  streamData = [...streamData.slice(1), 
+    Math.max(0, Math.min(100, streamData[streamData.length - 1] + (Math.random() - 0.5) * 6))
+  ];
+  g3.data = streamData;
+}, 100);
+
+// ── Renderer switch ───────────────────────────────────────────
+document.querySelectorAll('#rendererControls button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#rendererControls button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const r = btn.dataset.renderer;
+    g1.setAttribute('renderer', r);
+    g2.setAttribute('renderer', r);
+    document.getElementById('tag1').textContent = r;
+    document.getElementById('tag2').textContent = r;
+    document.getElementById('tag1').className = `tag ${r}`;
+    document.getElementById('tag2').className = `tag ${r}`;
+  });
+});
+
+// ── Stream controls ───────────────────────────────────────────
+document.getElementById('toggleStream').addEventListener('click', (btn) => {
+  streaming = !streaming;
+  btn.target.textContent = streaming ? '⏸ Pause' : '▶ Resume';
+});
+
+document.getElementById('resetStream').addEventListener('click', () => {
+  streamData = randomWalk(100);
+  g3.data = streamData;
+});
+</script>
+</body>
+</html>
