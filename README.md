@@ -4,7 +4,7 @@
 
 A framework-independent charting component that demonstrates deep browser platform knowledge: reactive signals from scratch, swappable rendering backends, Shadow DOM encapsulation, and a CSS custom properties theming API.
 
-[Live Demo](https://kirkwon.github.io/signalgraph) | [Why Signals Beat VDOM](docs/why-signals-beat-vdom.md) | [Shadow DOM Pitfalls](docs/shadow-dom-pitfalls.md)
+[Live Demo](https://www.kirkwon.com/signalgraph/) | [Why Signals Beat VDOM](docs/why-signals-beat-vdom.md) | [Shadow DOM Pitfalls](docs/shadow-dom-pitfalls.md)
 
 ---
 
