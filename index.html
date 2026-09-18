@@ -97,6 +97,32 @@
   .tag.svg { background: #2a2a4e; color: #7f8cff; }
   .tag.dom { background: #3a2a2e; color: #cf6f97; }
 
+  .live-meta { font-size: 12px; color: #888; display: flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #555; display: inline-block; }
+  .dot.on { background: #6fcf97; box-shadow: 0 0 6px #6fcf97; }
+  .mini-btn {
+    padding: 4px 12px;
+    border: 1px solid #3a3a4e;
+    background: #1a1a2e;
+    color: #ccc;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .mini-btn:hover { background: #2a2a3e; border-color: #5a5a7e; }
+  .card-footer {
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #666;
+    border-top: 1px solid #2a2a3e;
+    user-select: none;
+  }
+  .card-footer.track { cursor: crosshair; color: #7a7a9e; }
+
   .stats {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -199,6 +225,50 @@
     </div>
     <div class="card-body">
       <signal-graph id="graph3" renderer="canvas" line-color="#6fcf97"></signal-graph>
+    </div>
+  </div>
+
+  <!-- Live Signal Sources -->
+  <h2>Live Signal Sources</h2>
+  <p style="color:#888;font-size:13px;margin-bottom:12px;">
+    Three real time-based signals, one component. Each source writes to a
+    <code>signal()</code>; subscribed <code>effect()</code>s push the rolling window into the graph.
+  </p>
+
+  <div class="card">
+    <div class="card-header">
+      <span>Bitcoin price — Coinbase ticker</span>
+      <span class="live-meta">
+        <span class="dot" id="btcDot"></span>
+        <span id="btcStatus">connecting…</span> · <span id="btcPrice">—</span>
+      </span>
+    </div>
+    <div class="card-body">
+      <signal-graph id="btcGraph" renderer="canvas" line-color="#f2b544"></signal-graph>
+    </div>
+    <div class="card-footer">every trade is a tick — pushed through a WebSocket into <code>signal()</code></div>
+  </div>
+
+  <div class="demo-grid">
+    <div class="card">
+      <div class="card-header">
+        <span>🎤 Microphone waveform</span>
+        <button id="micToggle" class="mini-btn">Start</button>
+      </div>
+      <div class="card-body">
+        <signal-graph id="micGraph" renderer="canvas" line-color="#b48cff"></signal-graph>
+      </div>
+      <div class="card-footer" id="micStatus">click Start — needs mic permission</div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span>🖱 Pointer velocity</span>
+        <span class="live-meta" id="ptrReadout">0 px/s</span>
+      </div>
+      <div class="card-body">
+        <signal-graph id="ptrGraph" renderer="canvas" line-color="#4fd8cff"></signal-graph>
+      </div>
+      <div class="card-footer track" id="ptrArea">↔ move your pointer across this strip</div>
     </div>
   </div>
 
@@ -306,6 +376,112 @@ document.getElementById('toggleStream').addEventListener('click', (btn) => {
 document.getElementById('resetStream').addEventListener('click', () => {
   streamData = randomWalk(100);
   g3.data = streamData;
+});
+
+// ── Live signal sources ──────────────────────────────────────
+import { signal, effect } from './src/core/signal.js';
+
+// Bitcoin: Coinbase public WebSocket ticker → signal() → two effects
+const btcGraph = document.getElementById('btcGraph');
+const btcPrice = document.getElementById('btcPrice');
+const btcStatus = document.getElementById('btcStatus');
+const btcDot = document.getElementById('btcDot');
+const [btc, setBtc] = signal(null);
+const btcWindow = [];
+
+effect(() => {
+  const p = btc();
+  if (p == null) return;
+  btcPrice.textContent = p.toLocaleString('en-US', {
+    style: 'currency', currency: 'USD', maximumFractionDigits: 0
+  });
+});
+effect(() => {
+  const p = btc();
+  if (p == null) return;
+  btcWindow.push(p);
+  if (btcWindow.length > 180) btcWindow.shift();
+  btcGraph.data = [...btcWindow];
+});
+
+const ws = new WebSocket('wss://ws-feed.exchange.coinbase.com');
+ws.onopen = () => {
+  btcStatus.textContent = 'live';
+  btcDot.classList.add('on');
+  ws.send(JSON.stringify({
+    type: 'subscribe', product_ids: ['BTC-USD'], channels: ['ticker']
+  }));
+};
+ws.onmessage = (e) => {
+  const t = JSON.parse(e.data);
+  if (t.type === 'ticker' && t.price) setBtc(parseFloat(t.price));
+};
+ws.onclose = () => {
+  btcStatus.textContent = 'disconnected';
+  btcDot.classList.remove('on');
+};
+
+// Microphone: Web Audio AnalyserNode → waveform at rAF rate
+const micGraph = document.getElementById('micGraph');
+const micBtn = document.getElementById('micToggle');
+const micStatus = document.getElementById('micStatus');
+let micCtx = null, micStream = null, micRaf = 0;
+
+micBtn.addEventListener('click', async () => {
+  if (micCtx) {
+    cancelAnimationFrame(micRaf);
+    micStream.getTracks().forEach((t) => t.stop());
+    await micCtx.close();
+    micCtx = null;
+    micBtn.textContent = 'Start';
+    micStatus.textContent = 'stopped';
+    return;
+  }
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    micCtx = new AudioContext();
+    await micCtx.resume();
+    const analyser = micCtx.createAnalyser();
+    analyser.fftSize = 512;
+    micCtx.createMediaStreamSource(micStream).connect(analyser);
+    const buf = new Uint8Array(analyser.fftSize);
+    micBtn.textContent = 'Stop';
+    micStatus.textContent = 'streaming — make some noise';
+    const pump = () => {
+      analyser.getByteTimeDomainData(buf);
+      micGraph.data = Array.from(buf);
+      micRaf = requestAnimationFrame(pump);
+    };
+    pump();
+  } catch (err) {
+    micCtx = null;
+    micStatus.textContent = 'mic unavailable: ' + (err && err.name ? err.name : 'error');
+  }
+});
+
+// Pointer velocity: pointermove → signal(), sampled into a window every 60ms
+const ptrGraph = document.getElementById('ptrGraph');
+const ptrReadout = document.getElementById('ptrReadout');
+const ptrArea = document.getElementById('ptrArea');
+const [vel, setVel] = signal(0);
+const ptrWindow = new Array(160).fill(0);
+let lastX = 0, lastY = 0, lastT = 0, lastMove = 0;
+
+ptrArea.addEventListener('pointermove', (e) => {
+  const now = performance.now();
+  if (lastT && now > lastT) {
+    setVel(Math.hypot(e.clientX - lastX, e.clientY - lastY) / (now - lastT) * 1000);
+  }
+  lastX = e.clientX; lastY = e.clientY; lastT = now; lastMove = now;
+});
+setInterval(() => {
+  if (performance.now() - lastMove > 150) setVel(0);
+  ptrWindow.push(vel());
+  ptrWindow.shift();
+  ptrGraph.data = [...ptrWindow];
+}, 60);
+effect(() => {
+  ptrReadout.textContent = Math.round(vel()).toLocaleString('en-US') + ' px/s';
 });
 </script>
 </body>

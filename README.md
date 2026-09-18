@@ -80,7 +80,7 @@ CSS custom properties are the only CSS that crosses Shadow DOM boundaries — ma
 
 ```
 signalgraph/
-├── index.html              — Interactive demo
+├── index.html              — Interactive demo (renderer comparison · live signals: BTC ticker, mic waveform, pointer velocity)
 ├── src/
 │   ├── core/
 │   │   └── signal.js       — Reactive signal system
